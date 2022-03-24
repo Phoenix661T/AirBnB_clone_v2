@@ -1,81 +1,68 @@
 #!/usr/bin/python3
-from fabric.api import *
-from os import path
+"""
+Script generates a .tgz archive from web_static folder
+"""
+from fabric.operations import local, run, put, env
 from datetime import datetime
+import os
 
-env.hosts = ['34.74.122.27', '35.243.238.143']
 
-
-def do_deploy(archive_path):
-    """
-    Distributes an archive to your web servers
-    """
-    if not path.isfile(archive_path):
-        return False
-
-    file_name = archive_path.split('/')[-1]
-    remote_path = "/tmp/{}".format(file_name)
-
-    put(archive_path, remote_path)
-    run('mkdir -p /data/web_static/releases/{}/'
-        .format(file_name.split('.')[0]))
-    run('tar -xzf /tmp/{} -C /data/web_static/releases/{}/'
-        .format(file_name, file_name.split('.')[0]))
-    run('rm /tmp/{}'.format(file_name))
-    run('mv /data/web_static/releases/{0}/web_static/* \
-    /data/web_static/releases/{0}/'.format(file_name.split('.')[0]))
-    run('rm -rf /data/web_static/releases/{}/web_static'.
-        format(file_name.split('.')[0]))
-    run('rm -rf /data/web_static/current')
-    run('ln -s /data/web_static/releases/{}/ \
-    /data/web_static/current'.format(file_name.split('.')[0]))
-    print("New version deployed!")
-
-    return True
+env.hosts = ['35.237.142.70', '35.231.108.250']
+env.user = 'ubuntu'
 
 
 def do_pack():
     """
-    Generates a .tgz archive from the
-    contents of the web_static folder
+    function creates a .tgz archive
     """
-    try:
-        time_now = datetime.now().strftime('%Y%m%d%H%M%S')
 
-        arch_name = "web_static_{}".format(str(time_now))
-        new_folder = "versions"
-        target_path = "{}/{}.tgz".format(new_folder, arch_name)
-        source_folder = "web_static"
-
-        initial_msg = "Packing {} to {}".format(source_folder, target_path)
-        print(initial_msg)
-
-        with hide('running'):
-            local('mkdir -p {}'.format(new_folder))
-
-        local('tar -cvzf {} {}'.format(target_path, source_folder))
-
-        with hide('running'):
-            file_size = local(
-                'stat -c %s {}'.format(target_path), capture=True)
-
-        final_msg = "{} packed: {} -> {}Bytes".format(
-            source_folder, target_path, file_size)
-        print(final_msg)
-
-        return target_path
-
-    except Exception:
+    name = "versions/web_static_{}.tgz"
+    name = name.format(datetime.now().strftime("%Y%m%d%H%M%S"))
+    local("mkdir -p versions")
+    create = local("tar -cvzf {} web_static".format(name))
+    if create.succeeded:
+        return name
+    else:
         return None
+
+
+def do_deploy(archive_path):
+    """
+    function to dist to web server
+    """
+    if not os.path.exists(archive_path):
+        return False
+    if not put(archive_path, "/tmp/").succeeded:
+        return False
+    filename = archive_path[9:]
+    foldername = "/data/web_static/releases/" + filename[:-4]
+    filename = "/tmp/" + filename
+    if not run('mkdir -p {}'.format(foldername)).succeeded:
+        return False
+    if not run('tar -xzf {} -C {}'.format(filename, foldername)).succeeded:
+        return False
+    if not run('rm {}'.format(filename)).succeeded:
+        return False
+    if not run('mv {}/web_static/* {}'.format(foldername,
+                                              foldername)).succeeded:
+        return False
+    if not run('rm -rf {}/web_static'.format(foldername)).succeeded:
+        return False
+    if not run('rm -rf /data/web_static/current').succeeded:
+        return False
+    return run('ln -s {} /data/web_static/current'.format(
+        foldername)).succeeded
 
 
 def deploy():
     """
-    creates and distributes an archive to your web servers
+    function to dep
     """
-    archive_path = do_pack()
-
-    if archive_path:
-        return do_deploy(archive_path)
-    else:
+    dep = do_pack()
+    if dep is False:
         return False
+    return do_deploy(dep)
+
+
+if __name__ == "__main__":
+    do_deploy()

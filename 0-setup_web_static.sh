@@ -1,37 +1,18 @@
 #!/usr/bin/env bash
-# Sets up web servers for the deployment of web_static
-
-#Installs nginx if not already installed
+# web server for deployment
 sudo apt-get -y update
 sudo apt-get -y install nginx
 
-# Create the folder it doesn’t already exist
-sudo mkdir -p /data/
-sudo mkdir -p /data/web_static/
-sudo mkdir -p /data/web_static/releases/
 sudo mkdir -p /data/web_static/shared/
 sudo mkdir -p /data/web_static/releases/test/
 
-# Create a fake HTML file /data/web_static/releases/test/index.html
-# (with simple content, to test the Nginx configuration)
-echo "Holberton test" > /data/web_static/releases/test/index.html
+echo -e "<html>\n\t<head>\n\t</head>\n\t<body>\n\t\tHolberton School\n\t</body>\n</html>" >/data/web_static/releases/test/index.html
 
-# Create a symbolic link /data/web_static/current linked to the
-# /data/web_static/releases/test/ folder. If the symbolic link already exists
-# it is deleted and recreated every time the script is ran.
-rm -fr /data/web_static/current
-sudo ln -fs /data/web_static/releases/test/ /data/web_static/current
+sudo ln -sf /data/web_static/releases/test/ /data/web_static/current
 
-# Give ownership of the /data/ folder to the ubuntu user AND group recursively
-sudo chown -R ubuntu:ubuntu /data/
+sudo chown -R ubuntu:ubuntu /data
 
-# Updates the Nginx configuration to serve the content of /data/web_static/current/
-# to hbnb_static (ex: https://mydomainname.tech/hbnb_static).
-#new_lines= '\n\tlocation /hbnb_static/ { alias /data/web_static/current/; }'
-#search= 'listen 80 default_server;'
-#sudo sed -i '/$search/a $new_lines' /etc/nginx/sites-available/default
-sudo sed -i '/listen 80 default_server;/a location /hbnb_static/ { alias /data/web_static/current/; }' /etc/nginx/sites-available/default
-# sudo sed -i "s/$search/$new_lines/" /etc/nginx/sites-available/default
+new_str="location /hbnb_static {\nalias /data/web_static/current;\n}"
+sudo sed -i "/# Only/ i $new_str" /etc/nginx/sites-enabled/default
 
-# Restarts Nginx after updating the configuration
 sudo service nginx restart
